@@ -1,6 +1,7 @@
 const expressAsyncHandler = require("express-async-handler");
 const User = require("../models/userModel");
 const { generateToken } = require("../config/jwtToken");
+const { generateRefreshToken } = require("../config/refreshToken");
 
 // Create User
 const createUser = expressAsyncHandler(async(req, res) => {
@@ -24,6 +25,18 @@ const loginUser = expressAsyncHandler(async(req, res) => {
     // check if user exists
     const findUser = await User.findOne({ email });
     if (findUser && await findUser.isPasswordMatched(password)) {
+        const refreshToken = await generateRefreshToken(findUser._id);
+        const updateuser = await User.findByIdAndUpdate(findUser.id, { 
+            refreshToken: refreshToken 
+        }, { 
+            new: true 
+        }
+        );
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            maxAge: 7*24*60*60*1000, // 7 days
+        }); 
+
         res.json({
             _id: findUser?._id,
             firstname: findUser?.firstname,
@@ -37,9 +50,16 @@ const loginUser = expressAsyncHandler(async(req, res) => {
     }
 })
 
+// handle refresh token
+const handleRefreshToken = expressAsyncHandler(async(req, res) => {
+    const cookie = req.cookies;
+    console.log(cookie);
+})
+
 // Update User
 
 const updateUser = expressAsyncHandler(async(req, res) => {
+    validateMongoDbId(req.params.id);
     try {
         const updateUser = await User.findByIdAndUpdate(req.params.id, {
             firstname: req?.body?.firstname,
@@ -75,7 +95,6 @@ const getallUsers = expressAsyncHandler(async(req, res) => {
 // Get single User
 
 const getSingleUser = expressAsyncHandler(async(req, res) => {
-    console.log(req.params);
 
     try {
         const getUser = await User.findById(req.params.id);
@@ -91,7 +110,7 @@ const getSingleUser = expressAsyncHandler(async(req, res) => {
 // Delete single User
 
 const deleteUser = expressAsyncHandler(async(req, res) => {
-    console.log(req.params);
+
     try {
         const deleteUser = await User.findByIdAndDelete(req.params.id);
         res.json({
@@ -109,5 +128,6 @@ module.exports={
     getallUsers,
     getSingleUser,
     deleteUser,
-    updateUser
+    updateUser,
+    handleRefreshToken
 };

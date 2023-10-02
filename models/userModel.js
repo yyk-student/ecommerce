@@ -3,7 +3,9 @@ const bcrypt = require('bcrypt');
 const { ObjectId } = require('bson');
 
 // Declare the Schema of the Mongo model
-var userSchema = new mongoose.Schema({
+var userSchema = new mongoose.Schema(
+    {
+    
     firstname:{
         type:String,
         required:true,
@@ -36,12 +38,15 @@ var userSchema = new mongoose.Schema({
     },
     address: [{type: ObjectId, ref:"Address"}],
     wishlist: [{type: ObjectId, ref:"Product"}],
-    // orders: [{type: ObjectId, ref:"Order"}],
+    refreshToken: {
+        type: String,
+        default: "",
+    },
     },
     {
         timestamps: true,
-    }
-    );
+    },
+);
 
 userSchema.pre('save', async function(next){
     const salt = bcrypt.genSaltSync(10);
