@@ -1,52 +1,57 @@
 const mongoose = require('mongoose'); // Erase if already required
 const bcrypt = require('bcrypt');
-const { ObjectId } = require('bson');
 
-// Declare the Schema of the Mongo model
 var userSchema = new mongoose.Schema(
     {
-    
-    firstname:{
-        type:String,
-        required:true,
-    },
-    lastname:{
-        type:String,
-        required:true,
-    },
-    email:{
-        type:String,
-        required:true,
-        unique:true,
-    },
-    mobile:{
-        type:String,
-        required:true,
-        unique:true,
-    },
-    password:{
-        type:String,
-        required:true,
-    },
-    role: {
+      firstname: {
+        type: String,
+        required: true,
+      },
+      lastname: {
+        type: String,
+        required: true,
+      },
+      email: {
+        type: String,
+        required: true,
+        unique: true,
+      },
+      mobile: {
+        type: String,
+        required: true,
+        unique: true,
+      },
+      password: {
+        type: String,
+        required: true,
+      },
+      role: {
         type: String,
         default: "user",
-    },
-    cart:{
+      },
+      isBlocked: {
+        type: Boolean,
+        default: false,
+      },
+      cart: {
         type: Array,
         default: [],
-    },
-    address: [{type: ObjectId, ref:"Address"}],
-    wishlist: [{type: ObjectId, ref:"Product"}],
-    refreshToken: {
+      },
+      address: {
         type: String,
-        default: "",
-    },
+      },
+      wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
+      refreshToken: {
+        type: String,
+      },
+      passwordChangedAt: Date,
+      passwordResetToken: String,
+      passwordResetExpires: Date,
     },
     {
-        timestamps: true,
-    },
-);
+      timestamps: true,
+    }
+  );
 
 userSchema.pre('save', async function(next){
     const salt = bcrypt.genSaltSync(10);

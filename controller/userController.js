@@ -1,65 +1,93 @@
+const mongoose = require("mongoose");
 const expressAsyncHandler = require("express-async-handler");
+const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const { generateToken } = require("../config/jwtToken");
 const { generateRefreshToken } = require("../config/refreshToken");
 
-// Create User
-const createUser = expressAsyncHandler(async(req, res) => {
-    const email = req.body.email;
-    const findUser = await User.findOne({email});
-    if (!findUser) {
-        // Create a new User
-        const newUser = await User.create(req.body);
-        res.json(newUser);
 
+// Create a User ----------------------------------------------
+
+const createUser = expressAsyncHandler(async (req, res) => {
+    /**
+     * TODO:Get the email from req.body
+     */
+    const email = req.body.email;
+    /**
+     * TODO:With the help of email find the user exists or not
+     */
+    const findUser = await User.findOne({ email: email });
+  
+    if (!findUser) {
+      /**
+       * TODO:if user not found user create a new user
+       */
+      const newUser = await User.create(req.body);
+      res.json(newUser);
+    } else {
+      /**
+       * TODO:if user found then thow an error: User already exists
+       */
+      throw new Error("User Already Exists");
     }
-    else {
-        throw new Error('User already Exists');
-    }
-})
+  });
 
 // Login User
-const loginUser = expressAsyncHandler(async(req, res) => {
-    const {email, password} = req.body;
-    console.log(email, password);
-    // check if user exists
-    const findUser = await User.findOne({ email });
-    if (findUser && await findUser.isPasswordMatched(password)) {
-        const refreshToken = await generateRefreshToken(findUser._id);
-        const updateuser = await User.findByIdAndUpdate(findUser.id, { 
-            refreshToken: refreshToken 
-        }, { 
-            new: true 
-        }
-        );
-        res.cookie('refreshToken', refreshToken, {
-            httpOnly: true,
-            maxAge: 7*24*60*60*1000, // 7 days
-        }); 
-
-        res.json({
-            _id: findUser?._id,
-            firstname: findUser?.firstname,
-            lastname: findUser?.lastname,
-            email: findUser?.email,
-            mobile: findUser?.mobile,
-            token: generateToken(findUser?._id),
-        });
-    } else{
-        throw new Error("Invalid Credential");
-    }
-})
+const loginUser = expressAsyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+  // check if user exists or not
+  const findUser = await User.findOne({ email });
+  if (findUser && (await findUser.isPasswordMatched(password))) {
+    const refreshToken = await generateRefreshToken(findUser?._id);
+    const updateuser = await User.findByIdAndUpdate(
+      findUser.id,
+      {
+        refreshToken: refreshToken,
+      },
+      { new: true }
+    );
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      maxAge: 72 * 60 * 60 * 1000,
+    });
+    res.json({
+      _id: findUser?._id,
+      firstname: findUser?.firstname,
+      lastname: findUser?.lastname,
+      email: findUser?.email,
+      mobile: findUser?.mobile,
+      token: generateToken(findUser?._id),
+    });
+  } else {
+    throw new Error("Invalid Credentials");
+  }
+});
 
 // handle refresh token
 const handleRefreshToken = expressAsyncHandler(async(req, res) => {
     const cookie = req.cookies;
-    console.log(cookie);
+    if (!cookie?.refreshToken) {
+        throw new Error('No refresh token');
+    }
+    const refreshToken = cookie.refreshToken;
+    console.log(refreshToken);
+    const user = await User.findOne({refreshToken});
+    if (!user) throw new Error("No Refresh Token present in db or not matched");
+      jwt.verify(refreshToken, process.env.JWT_TOKEN, (err, decoded) => {
+        if (err || user.id !== decoded.id) {
+          throw new Error("There is something wrong with the refresh token");
+        } else{
+          const accessToken = generateToken(user.id);
+          res.json( 
+            {accessToken}
+          )
+        }
+    })
 })
 
 // Update User
 
 const updateUser = expressAsyncHandler(async(req, res) => {
-    validateMongoDbId(req.params.id);
     try {
         const updateUser = await User.findByIdAndUpdate(req.params.id, {
             firstname: req?.body?.firstname,
@@ -81,6 +109,7 @@ const updateUser = expressAsyncHandler(async(req, res) => {
         
     }
 )
+
 // Get all Users
 const getallUsers = expressAsyncHandler(async(req, res) => {
     try {
@@ -94,18 +123,25 @@ const getallUsers = expressAsyncHandler(async(req, res) => {
 
 // Get single User
 
-const getSingleUser = expressAsyncHandler(async(req, res) => {
+const getSingleUser = expressAsyncHandler(async (req, res) => {
 
-    try {
-        const getUser = await User.findById(req.params.id);
-        res.json({
-            getUser
-        });
-        
-    } catch (error) {
-        throw new Error(error); 
+  const id = req.params.id;
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    // Handle the case when req.params.id is not a valid ObjectId
+    return res.status(400).json({ error: 'Invalid ID' });
+  }
+
+  try {
+    const getUser = await User.findById(id);
+    if (!getUser) {
+      return res.status(404).json({ error: 'User not found' });
     }
-})
+    res.json({ getUser });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Delete single User
 
