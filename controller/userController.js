@@ -85,6 +85,40 @@ const handleRefreshToken = expressAsyncHandler(async(req, res) => {
     })
 })
 
+// logout a user
+
+const logoutUser = expressAsyncHandler(async(req, res) => {
+    const id = req.params.id;
+
+    const cookie = req.cookies;
+
+    if (!cookie?.refreshToken) {
+        throw new Error('No refresh token');
+    }
+
+    const refreshToken = cookie.refreshToken;
+    const user = await User.findOne({refreshToken});
+    console.log(`User: ${user}`);
+    console.log(`Refresh Token: ${refreshToken}`);
+    if (!user) {
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            secure: true,
+        });
+        return res.sendStatus(204); // forbidden
+    }
+
+    await User.findByIdAndUpdate(id, {
+        refreshToken: "",
+    });
+
+    res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: true,
+    });
+    
+    return res.sendStatus(204); // forbidden
+})
 // Update User
 
 const updateUser = expressAsyncHandler(async(req, res) => {
@@ -165,5 +199,6 @@ module.exports={
     getSingleUser,
     deleteUser,
     updateUser,
-    handleRefreshToken
+    handleRefreshToken,
+    logoutUser
 };
